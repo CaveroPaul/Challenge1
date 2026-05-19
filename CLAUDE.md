@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Jupyter Notebook ETL pipeline that extracts e-commerce order data from Kaggle, transforms it with pandas, and loads it into a PostgreSQL star-schema database.
+A Jupyter Notebook ETL pipeline for a technology equipment sales company. It extracts e-commerce order data from Kaggle, transforms it with pandas (including a discount logic for online sales), and loads it into a PostgreSQL star-schema database.
+
+**Business rule:** A 10% discount applies to online orders (`metodo_pago = 'Online'`) for the first 500 sales placed through the platform. Only the first sale per `(fecha, id_cliente)` pair counts toward the 500-order threshold.
 
 ## Environment Setup
 
