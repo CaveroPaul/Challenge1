@@ -15,6 +15,7 @@ A Jupyter Notebook ETL pipeline for a technology equipment sales company. It ext
 pip install -r requirements.txt
 
 # requirements: kagglehub, pandas, openpyxl, sqlalchemy, psycopg2
+# Note: psycopg2 may require the binary build on some systems: pip install psycopg2-binary
 ```
 
 ## Running the Notebook
