@@ -13,6 +13,24 @@ This logic is implemented in the ETL pipeline via two derived columns in the `ve
 
 ---
 
+## Requirements
+
+| Package | Purpose |
+|---|---|
+| `sqlalchemy` | Database engine and connection management |
+| `psycopg2` | PostgreSQL driver for SQLAlchemy (`psycopg2-binary` on some systems) |
+| `pandas` | DataFrame operations and staging table load via `to_sql` |
+| `kagglehub` | Dataset download |
+| `openpyxl` | Reading the `.xlsx` source file |
+
+Install with:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
 ## Schema Initialization
 
 All tables are defined in [`init_db.sql`](../init_db.sql) at the project root. Run it once before executing the ETL notebook:
