@@ -23,11 +23,28 @@ Open and run `data_extraction.ipynb` cell by cell in Jupyter. The notebook is se
 jupyter notebook data_extraction.ipynb
 ```
 
+## Repository Structure
+
+```
+data_extraction.ipynb   # Main ETL notebook
+init_db.sql             # Run once to create all tables before the notebook
+requirements.txt
+doc/
+  README.md
+  database_architecture.md  # Table definitions and star schema diagram
+```
+
 ## Database
 
 - **Engine**: PostgreSQL, local instance
 - **Connection string**: `postgresql+psycopg2://postgres:admin@localhost:5432/ecomerce`
-- The database must be running and the schema must exist before the load step.
+- Before the first notebook run, initialize the schema:
+
+```bash
+psql -U postgres -d ecomerce -f init_db.sql
+```
+
+The notebook also runs `init_db.sql` automatically in cell **4.2** via `engine.exec_driver_sql()`, so manual execution is only needed if running outside the notebook.
 
 ## ETL Architecture (`data_extraction.ipynb`)
 
