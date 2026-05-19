@@ -1,5 +1,17 @@
 # Database Architecture
 
+## Schema Initialization
+
+All tables are defined in [`init_db.sql`](../init_db.sql) at the project root. Run it once before executing the ETL notebook:
+
+```bash
+psql -U postgres -d ecomerce -f init_db.sql
+```
+
+All `CREATE TABLE` statements use `IF NOT EXISTS`, so the script is safe to re-run.
+
+---
+
 ## Overview
 
 The database (`ecomerce`) follows a **star schema** pattern. Raw/transformed data lands in a staging table (`ventas`), then gets promoted into dimension and fact tables.
