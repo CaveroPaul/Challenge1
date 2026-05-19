@@ -1,5 +1,18 @@
 # Database Architecture
 
+## Business Context
+
+A technology equipment sales company wants to implement a discount logic for the first 500 products sold through the online application:
+
+- A **10% discount** is applied to online sales (`metodo_pago = 'Online'`) for the first 500 orders placed through the platform.
+- Only the first sale per date is counted toward the 500-order threshold — duplicate `(fecha, id_cliente)` combinations are excluded before the count is computed.
+
+This logic is implemented in the ETL pipeline via two derived columns in the `ventas` staging table:
+- `count_pagos_by_tipo` — counts total orders per payment method after deduplication.
+- `descuento` — applies 10% when `metodo_pago = 'Online'` AND `count_pagos_by_tipo < 500`; 0 otherwise.
+
+---
+
 ## Schema Initialization
 
 All tables are defined in [`init_db.sql`](../init_db.sql) at the project root. Run it once before executing the ETL notebook:
