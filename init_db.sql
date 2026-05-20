@@ -1,9 +1,37 @@
--- Initialize the ecomerce database schema
+-- Initialize the ecomerce database schema — Medallion Architecture
 -- Run this once before executing the ETL notebook:
---   psql -U postgres -d ecomerce -f init_db.sql
+--   psql -U postgres -d ecomerce -f init_db_v2.sql
+--
+-- Layers:
+--   Bronze  → raw_ventas      : deduped data, no derived metrics
+--   Silver  → silver_ventas   : bronze + descuento + final_total
+--   Gold    → dim_cliente, dim_producto, fact_ventas (star schema)
+--
+-- NOTE: IF NOT EXISTS is safe to re-run, but constraint changes only apply
+-- to freshly created tables. Drop existing tables to apply schema changes.
 
--- Staging table: receives the full transformed DataFrame on each ETL run
-CREATE TABLE IF NOT EXISTS ventas (
+DROP TABLE IF EXISTS ventas;
+
+-- Bronze: deduped raw data, no transformation metrics applied
+CREATE TABLE IF NOT EXISTS raw_ventas (
+    order_id             VARCHAR(20) PRIMARY KEY,
+    fecha                DATE,
+    id_cliente           VARCHAR(20),
+    producto             VARCHAR(100),
+    cantidad             INT,
+    precio_unitario      NUMERIC(10,2),
+    direccion_envio      VARCHAR(255),
+    metodo_pago          VARCHAR(50),
+    estado_pedido        VARCHAR(50),
+    numero_seguimiento   VARCHAR(50),
+    articulos_en_carrito INT,
+    codigo_cupon         VARCHAR(50),
+    fuente_referencia    VARCHAR(50),
+    precio_total         NUMERIC(12,2)
+);
+
+-- Silver: enriched with discount logic (online_rank <= 500 → 10% off)
+CREATE TABLE IF NOT EXISTS silver_ventas (
     order_id             VARCHAR(20) PRIMARY KEY,
     fecha                DATE,
     id_cliente           VARCHAR(20),
@@ -18,32 +46,32 @@ CREATE TABLE IF NOT EXISTS ventas (
     codigo_cupon         VARCHAR(50),
     fuente_referencia    VARCHAR(50),
     precio_total         NUMERIC(12,2),
-    count_pagos_by_tipo  INT,
     descuento            NUMERIC(12,3),
     final_total          NUMERIC(12,3)
 );
 
--- Dimension: customers
+-- Gold: dimension tables
 CREATE TABLE IF NOT EXISTS dim_cliente (
     sk_cliente  SERIAL PRIMARY KEY,
-    id_cliente  VARCHAR(20) UNIQUE NOT NULL
+    id_cliente  VARCHAR(20) UNIQUE NOT NULL,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Dimension: products
 CREATE TABLE IF NOT EXISTS dim_producto (
     sk_producto SERIAL PRIMARY KEY,
-    producto    VARCHAR(100) UNIQUE NOT NULL
+    producto    VARCHAR(100) UNIQUE NOT NULL,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Fact table: one row per order
+-- Gold: fact table — reads from silver_ventas
 CREATE TABLE IF NOT EXISTS fact_ventas (
     sk_venta    SERIAL PRIMARY KEY,
     order_id    VARCHAR(20) UNIQUE NOT NULL,
     fecha       DATE,
     sk_cliente  INT NOT NULL,
     sk_producto INT NOT NULL,
-    cantidad    INT,
-    final_total NUMERIC(12,3),
+    cantidad    INT NOT NULL,
+    final_total NUMERIC(12,3) NOT NULL,
 
     CONSTRAINT fk_cliente
         FOREIGN KEY (sk_cliente)
