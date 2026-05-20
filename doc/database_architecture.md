@@ -2,14 +2,15 @@
 
 ## Business Context
 
-A technology equipment sales company wants to implement a discount logic for the first 500 products sold through the online application:
+A technology equipment sales company applies a discount to early online orders:
 
-- A **10% discount** is applied to online sales (`metodo_pago = 'Online'`) for the first 500 orders placed through the platform.
-- Only the first sale per date is counted toward the 500-order threshold — duplicate `(fecha, id_cliente)` combinations are excluded before the count is computed.
+- A **10% discount** is applied to online orders (`metodo_pago = 'Online'`) for the first 500 orders placed through the platform.
+- Only the first order per `(fecha, id_cliente)` pair counts — duplicates are removed before the threshold is evaluated.
 
-This logic is implemented in the ETL pipeline via two derived columns in the `ventas` staging table:
-- `count_pagos_by_tipo` — counts total orders per payment method after deduplication.
-- `descuento` — applies 10% when `metodo_pago = 'Online'` AND `count_pagos_by_tipo < 500`; 0 otherwise.
+The discount logic produces two derived columns in the silver layer:
+- `count_pagos_by_tipo` — count of all orders sharing the same payment method (computed in pandas via `groupby.transform`).
+- `descuento` — 10% of `precio_total` when `metodo_pago = 'Online'` AND `count_pagos_by_tipo < 500`; 0 otherwise.
+- `final_total` — `precio_total - descuento`.
 
 ---
 
@@ -39,29 +40,41 @@ All tables are defined in [`init_db.sql`](../init_db.sql) at the project root. R
 psql -U postgres -d ecomerce -f init_db.sql
 ```
 
+Or use the Python alternative:
+
+```bash
+python init_db.py
+```
+
 All `CREATE TABLE` statements use `IF NOT EXISTS`, so the script is safe to re-run.
 
 ---
 
-## Overview
+## Overview — Medallion Architecture
 
-The database (`ecomerce`) follows a **star schema** pattern. Raw/transformed data lands in a staging table (`ventas`), then gets promoted into dimension and fact tables.
+The pipeline follows a three-layer medallion pattern:
 
 ```
-ventas (staging)
-     │
-     ├──► dim_cliente  ──┐
-     │                   ├──► fact_ventas
-     └──► dim_producto ──┘
+Kaggle (.xlsx)
+      │
+      ▼
+  raw_ventas        ← Bronze: deduped source data, no derived metrics
+      │
+      ▼
+ silver_ventas      ← Silver: bronze + count_pagos_by_tipo + descuento + final_total
+      │
+      ├──► dim_cliente  ──┐
+      │                   ├──► fact_ventas   ← Gold: star schema
+      └──► dim_producto ──┘
 ```
 
 ---
 
-## Staging Table
+## Bronze Layer
 
-### `ventas`
+### `raw_ventas`
 
-Holds the full transformed dataset loaded from the notebook. Replaced on each ETL run (`if_exists="replace"`).
+Deduped source data with no discount metrics. Replaced on each ETL run (`if_exists="replace"`).
 
 | Column | Type | Description |
 |---|---|---|
@@ -72,20 +85,33 @@ Holds the full transformed dataset loaded from the notebook. Replaced on each ET
 | `cantidad` | INT | Units ordered |
 | `precio_unitario` | NUMERIC(10,2) | Price per unit |
 | `direccion_envio` | VARCHAR(255) | Shipping address |
-| `metodo_pago` | VARCHAR(50) | Payment method (e.g. Online, Credit Card, Debit Card) |
-| `estado_pedido` | VARCHAR(50) | Order status (e.g. Shipped, Delivered, Cancelled, Returned) |
+| `metodo_pago` | VARCHAR(50) | Payment method (Online, Credit Card, Debit Card, Cash) |
+| `estado_pedido` | VARCHAR(50) | Order status (Shipped, Delivered, Cancelled, Returned, Pending) |
 | `numero_seguimiento` | VARCHAR(50) | Tracking number |
 | `articulos_en_carrito` | INT | Items in cart at time of order |
 | `codigo_cupon` | VARCHAR(50) | Coupon code applied |
-| `fuente_referencia` | VARCHAR(50) | Referral source (e.g. Instagram, Email, Facebook) |
+| `fuente_referencia` | VARCHAR(50) | Referral source (Instagram, Email, Facebook, etc.) |
 | `precio_total` | NUMERIC(12,2) | Raw total before discount |
-| `count_pagos_by_tipo` | INT | Count of orders sharing the same payment method (window aggregate) |
-| `descuento` | NUMERIC(12,3) | Discount applied (10% if Online and count < 500, else 0) |
+
+---
+
+## Silver Layer
+
+### `silver_ventas`
+
+All bronze columns plus the three discount-related derived columns. The star schema reads from this layer. Replaced on each ETL run.
+
+Includes all columns from `raw_ventas`, plus:
+
+| Column | Type | Description |
+|---|---|---|
+| `count_pagos_by_tipo` | INT | Count of orders sharing the same `metodo_pago` after deduplication |
+| `descuento` | NUMERIC(12,3) | 10% of `precio_total` if Online and count < 500; 0 otherwise |
 | `final_total` | NUMERIC(12,3) | `precio_total - descuento` |
 
 ---
 
-## Dimension Tables
+## Gold Layer — Star Schema
 
 ### `dim_cliente`
 
@@ -93,6 +119,7 @@ Holds the full transformed dataset loaded from the notebook. Replaced on each ET
 |---|---|---|
 | `sk_cliente` | SERIAL PK | Surrogate key |
 | `id_cliente` | VARCHAR(20) UNIQUE NOT NULL | Natural customer key |
+| `created_at` | TIMESTAMP | Row creation timestamp |
 
 ### `dim_producto`
 
@@ -100,10 +127,7 @@ Holds the full transformed dataset loaded from the notebook. Replaced on each ET
 |---|---|---|
 | `sk_producto` | SERIAL PK | Surrogate key |
 | `producto` | VARCHAR(100) UNIQUE NOT NULL | Product name (natural key) |
-
----
-
-## Fact Table
+| `created_at` | TIMESTAMP | Row creation timestamp |
 
 ### `fact_ventas`
 
@@ -113,18 +137,18 @@ Holds the full transformed dataset loaded from the notebook. Replaced on each ET
 | `order_id` | VARCHAR(20) UNIQUE NOT NULL | Natural order key |
 | `fecha` | DATE | Order date |
 | `sk_cliente` | INT FK → `dim_cliente.sk_cliente` | Customer dimension reference |
-| `sk_producto` | INT FK → `dim_producto.sk_producto` | Product dimension reference |
-| `cantidad` | INT | Units ordered |
-| `final_total` | NUMERIC(12,3) | Final amount after discount |
+| `sk_producto` | INT FK → `dim_producto.sk_produto` | Product dimension reference |
+| `cantidad` | INT NOT NULL | Units ordered |
+| `final_total` | NUMERIC(12,3) NOT NULL | Final amount after discount |
 
 ---
 
 ## Load Strategy
 
-All inserts into dimension and fact tables use `ON CONFLICT DO NOTHING`, making each ETL run idempotent. New orders are appended; existing `order_id` values are skipped.
+All gold-layer inserts run inside a single transaction and read from `silver_ventas`. `ON CONFLICT DO NOTHING` makes each ETL run idempotent — existing records are skipped, new ones are appended.
 
 ```
-ventas  →  dim_cliente   (DISTINCT id_cliente,  ON CONFLICT DO NOTHING)
-ventas  →  dim_producto  (DISTINCT producto,    ON CONFLICT DO NOTHING)
-ventas  →  fact_ventas   (JOIN both dims,        ON CONFLICT (order_id) DO NOTHING)
+silver_ventas  →  dim_cliente   (DISTINCT id_cliente,  ON CONFLICT DO NOTHING)
+silver_ventas  →  dim_produto   (DISTINCT produto,     ON CONFLICT DO NOTHING)
+silver_ventas  →  fact_ventas   (JOIN both dims,        ON CONFLICT (order_id) DO NOTHING)
 ```
