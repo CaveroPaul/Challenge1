@@ -3,4 +3,5 @@ pandas
 openpyxl
 sqlalchemy
 psycopg2
+matplotlib
 pytest
