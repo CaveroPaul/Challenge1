@@ -1,5 +1,31 @@
 # Documentation
 
+## Data Source
+
+Dataset: **[E-Commerce Orders and Customer — hammadansari7](https://www.kaggle.com/datasets/hammadansari7/e-commerce-orders-and-customer/data)**
+Downloaded via `kagglehub` and cached locally at runtime.
+
+---
+
+## Feature Phases
+
+**Phase 1 — Extract**
+Download the e-commerce dataset from Kaggle using kagglehub and cache it locally.
+
+**Phase 2 — Transform**
+Rename columns, cast types, deduplicate by `(date, customer)`, and apply the 10% discount logic for the first 500 online orders.
+
+**Phase 3 — Load**
+Write data through a medallion architecture:
+- Bronze: raw deduplicated data (`raw_ventas`)
+- Silver: enriched with discount columns (`silver_ventas`)
+- Gold: star schema (`dim_cliente`, `dim_produto`, `fact_ventas`)
+
+**Phase 4 — Analysis**
+Query the star schema on Neon for business metrics: sales by customer, by product, and by day.
+
+---
+
 ## [`database_architecture.md`](database_architecture.md)
 
 Full reference for the `ecomerce` PostgreSQL database.

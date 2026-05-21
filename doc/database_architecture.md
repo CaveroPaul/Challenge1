@@ -50,6 +50,15 @@ All `CREATE TABLE` statements use `IF NOT EXISTS`, so the script is safe to re-r
 
 ---
 
+## Data Source
+
+The dataset is sourced from Kaggle:
+**[E-Commerce Orders and Customer — hammadansari7](https://www.kaggle.com/datasets/hammadansari7/e-commerce-orders-and-customer/data)**
+
+Downloaded automatically at runtime via `kagglehub` and cached locally under `~/.cache/kagglehub/`.
+
+---
+
 ## Overview — Medallion Architecture
 
 The pipeline follows a three-layer medallion pattern:
