@@ -3,3 +3,5 @@ data/
 .claude/
 __pycache__/
 .pytest_cache/
+.agents/
+skills-lock.json
