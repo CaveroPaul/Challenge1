@@ -19,10 +19,13 @@ Rename columns, cast types, deduplicate by `(date, customer)`, and apply the 10%
 Write data through a medallion architecture:
 - Bronze: raw deduplicated data (`raw_ventas`)
 - Silver: enriched with discount columns (`silver_ventas`)
-- Gold: star schema (`dim_cliente`, `dim_produto`, `fact_ventas`)
+- Gold: star schema (`dim_cliente`, `dim_producto`, `fact_ventas`)
 
 **Phase 4 — Analysis**
 Query the star schema on Neon for business metrics: sales by customer, by product, and by day.
+
+**Phase 5 — Visualizations**
+Generate `matplotlib` bar and line charts from the analysis queries and save them to `doc/`.
 
 ---
 
@@ -36,7 +39,7 @@ Full reference for the `ecomerce` PostgreSQL database.
 - **Medallion architecture** — three-layer pipeline:
   - **Bronze** (`raw_ventas`) — deduped source data, no derived metrics.
   - **Silver** (`silver_ventas`) — bronze + discount columns; this is what the star schema reads from.
-  - **Gold** (`dim_cliente`, `dim_produto`, `fact_ventas`) — star schema for analytics queries.
+  - **Gold** (`dim_cliente`, `dim_producto`, `fact_ventas`) — star schema for analytics queries.
 - **Table definitions** — column names, types, and constraints for every table.
 - **Load strategy** — idempotent inserts using `ON CONFLICT DO NOTHING`.
 - **Schema initialization** — how to run `init_db.sql` or `init_db.py` before the first ETL run.

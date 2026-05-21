@@ -146,7 +146,7 @@ Includes all columns from `raw_ventas`, plus:
 | `order_id` | VARCHAR(20) UNIQUE NOT NULL | Natural order key |
 | `fecha` | DATE | Order date |
 | `sk_cliente` | INT FK → `dim_cliente.sk_cliente` | Customer dimension reference |
-| `sk_producto` | INT FK → `dim_producto.sk_produto` | Product dimension reference |
+| `sk_producto` | INT FK → `dim_producto.sk_producto` | Product dimension reference |
 | `cantidad` | INT NOT NULL | Units ordered |
 | `final_total` | NUMERIC(12,3) NOT NULL | Final amount after discount |
 
@@ -158,6 +158,6 @@ All gold-layer inserts run inside a single transaction and read from `silver_ven
 
 ```
 silver_ventas  →  dim_cliente   (DISTINCT id_cliente,  ON CONFLICT DO NOTHING)
-silver_ventas  →  dim_produto   (DISTINCT produto,     ON CONFLICT DO NOTHING)
+silver_ventas  →  dim_producto  (DISTINCT producto,    ON CONFLICT DO NOTHING)
 silver_ventas  →  fact_ventas   (JOIN both dims,        ON CONFLICT (order_id) DO NOTHING)
 ```

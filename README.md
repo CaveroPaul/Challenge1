@@ -32,19 +32,13 @@ See [`doc/database_architecture.md`](doc/database_architecture.md) for full tabl
 
 ## Setup
 
-**Requirements:** Python 3.x, PostgreSQL running locally, Kaggle credentials configured.
+**Requirements:** Python 3.x, Neon Postgres credentials configured, Kaggle credentials configured.
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Initialize the database schema (run once):
-
-```bash
-psql -U postgres -d ecomerce -f init_db.sql
-```
-
-Or use the Python alternative:
+Initialize the database schema (run once, or let cell 4.2 do it automatically):
 
 ```bash
 python init_db.py
@@ -69,12 +63,15 @@ Run cells top to bottom. The notebook is self-contained and re-runnable — all 
 ## Repository Structure
 
 ```
-data_extraction.ipynb       # Main ETL notebook
-init_db.sql                 # PostgreSQL schema (CREATE TABLE IF NOT EXISTS)
-init_db.py                  # Python alternative to psql for schema init
-test_data_extraction.py     # Unit tests for transform logic
+data_extraction.ipynb           # Main ETL notebook
+init_db.sql                     # PostgreSQL schema (CREATE TABLE IF NOT EXISTS)
+init_db.py                      # Python alternative for schema init
+test_data_extraction.py         # Unit tests for transform logic
 requirements.txt
 doc/
   README.md
   database_architecture.md
+  sales_charts_by_customer.png  # Top 15 customers by total sales
+  sales_charts_by_date.png      # Daily sales trend
+  sales_charts_by_product.png   # Total sales by product
 ```
