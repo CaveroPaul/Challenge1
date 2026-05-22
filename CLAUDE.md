@@ -30,13 +30,13 @@ jupyter notebook data_extraction.ipynb
 
 ```
 data_extraction.ipynb       # Main ETL notebook
-init_db.sql                 # PostgreSQL schema (CREATE TABLE IF NOT EXISTS)
+init_db.sql                 # PostgreSQL schema — Bronze, Silver, Gold (includes dim_fecha)
 init_db.py                  # Python alternative to psql for schema init
 test_data_extraction.py     # 20 unit tests for transform logic (no DB required)
 requirements.txt
 doc/
   README.md
-  database_architecture.md      # Table definitions and star schema diagram
+  database_architecture.md      # Table definitions, ER diagram (Mermaid), star schema
   sales_charts_by_customer.png  # Top 15 customers by total sales
   sales_charts_by_date.png      # Daily sales trend
   sales_charts_by_product.png   # Total sales by product
@@ -52,7 +52,7 @@ doc/
 python init_db.py
 ```
 
-Cell **4.2** runs `init_db.sql` automatically via `engine.begin()`, so manual execution is only needed if running outside the notebook.
+Cell **4.2** runs `init_db.sql` automatically via `engine.begin()`. It drops and recreates all gold tables (in FK dependency order) before creating them, so schema changes are applied cleanly on each run. Manual execution is only needed if running outside the notebook.
 
 ## ETL Architecture (`data_extraction.ipynb`)
 
@@ -67,11 +67,11 @@ The notebook implements a single-file ETL pipeline in six sections:
 4. **Load** — Medallion architecture, all written to Neon:
    - **Bronze** (`raw_ventas`) — deduped source data, no discount columns; replaced each run.
    - **Silver** (`silver_ventas`) — bronze + `count_pagos_by_tipo`, `descuento`, `final_total`; replaced each run.
-   - **Gold** — single transaction reading from `silver_ventas`:
+   - **Gold** — reads from `silver_ventas`; all inserts use `ON CONFLICT DO NOTHING` for idempotency:
+     - `dim_fecha` — continuous date range (every day from min to max date) generated via `pd.date_range`; columns parsed from `init_db.sql` at runtime; PK `sk_fecha`
      - `dim_cliente` — distinct `id_cliente` values; PK `sk_cliente`
      - `dim_producto` — distinct `producto` values; PK `sk_producto`
-     - `fact_ventas` — joins both dims; unique on `order_id`
-   - All gold inserts use `ON CONFLICT DO NOTHING` for idempotency.
+     - `fact_ventas` — joins all three dims; unique on `order_id`; includes `sk_fecha` FK
 
 5. **Analysis** — Star schema queries: top customers, top products, daily sales trend.
 
@@ -83,3 +83,5 @@ The notebook implements a single-file ETL pipeline in six sections:
 - `final_total` is the column loaded into `fact_ventas`, not the raw `precio_total`.
 - The discount logic: `metodo_pago = 'Online'` AND `count_pagos_by_tipo < 500`. Because the dataset has 258 online orders (< 500), every online order receives the 10% discount.
 - `count_pagos_by_tipo` is a per-payment-method order count (not a sequential rank), so all online orders share the same value (258).
+- `dim_fecha` covers 912 continuous days (2023-01-01 to 2025-06-30) — all days in the range, including days with no sales. Column names are parsed from `init_db.sql` at runtime so the notebook stays in sync with the schema automatically.
+- `fact_ventas` includes both `fecha` (DATE, for direct queries) and `sk_fecha` (FK to `dim_fecha`, for dimensional analysis by year/quarter/month/week/day-of-week).
