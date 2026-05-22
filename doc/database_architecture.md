@@ -14,6 +14,96 @@ The discount logic produces two derived columns in the silver layer:
 
 ---
 
+## Entity-Relationship Diagram
+
+```mermaid
+erDiagram
+
+    %% Bronze
+    raw_ventas {
+        VARCHAR order_id PK
+        DATE fecha
+        VARCHAR id_cliente
+        VARCHAR producto
+        INT cantidad
+        NUMERIC precio_unitario
+        VARCHAR direccion_envio
+        VARCHAR metodo_pago
+        VARCHAR estado_pedido
+        VARCHAR numero_seguimiento
+        INT articulos_en_carrito
+        VARCHAR codigo_cupon
+        VARCHAR fuente_referencia
+        NUMERIC precio_total
+    }
+
+    %% Silver
+    silver_ventas {
+        VARCHAR order_id PK
+        DATE fecha
+        VARCHAR id_cliente
+        VARCHAR producto
+        INT cantidad
+        NUMERIC precio_unitario
+        VARCHAR direccion_envio
+        VARCHAR metodo_pago
+        VARCHAR estado_pedido
+        VARCHAR numero_seguimiento
+        INT articulos_en_carrito
+        VARCHAR codigo_cupon
+        VARCHAR fuente_referencia
+        NUMERIC precio_total
+        NUMERIC descuento
+        NUMERIC final_total
+    }
+
+    %% Gold - Dimensions
+    dim_fecha {
+        SERIAL sk_fecha PK
+        DATE fecha UK
+        INT anio
+        INT trimestre
+        INT mes
+        VARCHAR nombre_mes
+        INT semana_anio
+        INT dia
+        INT dia_semana
+        VARCHAR nombre_dia
+        BOOLEAN es_fin_semana
+    }
+
+    dim_cliente {
+        SERIAL sk_cliente PK
+        VARCHAR id_cliente UK
+        TIMESTAMP created_at
+    }
+
+    dim_producto {
+        SERIAL sk_producto PK
+        VARCHAR producto UK
+        TIMESTAMP created_at
+    }
+
+    %% Gold - Fact
+    fact_ventas {
+        SERIAL sk_venta PK
+        VARCHAR order_id UK
+        DATE fecha
+        INT sk_fecha FK
+        INT sk_cliente FK
+        INT sk_producto FK
+        INT cantidad
+        NUMERIC final_total
+    }
+
+    %% Relationships
+    fact_ventas }o--|| dim_fecha : "sk_fecha"
+    fact_ventas }o--|| dim_cliente : "sk_cliente"
+    fact_ventas }o--|| dim_producto : "sk_producto"
+```
+
+---
+
 ## Requirements
 
 | Package | Purpose |
@@ -122,6 +212,22 @@ Includes all columns from `raw_ventas`, plus:
 
 ## Gold Layer — Star Schema
 
+### `dim_fecha`
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `sk_fecha` | SERIAL PK | Surrogate key |
+| `fecha` | DATE UNIQUE NOT NULL | Fecha natural (clave de negocio) |
+| `anio` | INT | Año (ej. 2024) |
+| `trimestre` | INT | Trimestre 1–4 |
+| `mes` | INT | Mes 1–12 |
+| `nombre_mes` | VARCHAR(20) | Nombre del mes (ej. January) |
+| `semana_anio` | INT | Semana ISO del año 1–53 |
+| `dia` | INT | Día del mes 1–31 |
+| `dia_semana` | INT | Día ISO de la semana 1=Lunes … 7=Domingo |
+| `nombre_dia` | VARCHAR(20) | Nombre del día (ej. Monday) |
+| `es_fin_semana` | BOOLEAN | `true` si `dia_semana` ∈ {6, 7} |
+
 ### `dim_cliente`
 
 | Column | Type | Description |
@@ -144,7 +250,8 @@ Includes all columns from `raw_ventas`, plus:
 |---|---|---|
 | `sk_venta` | SERIAL PK | Surrogate key |
 | `order_id` | VARCHAR(20) UNIQUE NOT NULL | Natural order key |
-| `fecha` | DATE | Order date |
+| `fecha` | DATE | Order date (redundante para queries directas) |
+| `sk_fecha` | INT FK → `dim_fecha.sk_fecha` | Date dimension reference |
 | `sk_cliente` | INT FK → `dim_cliente.sk_cliente` | Customer dimension reference |
 | `sk_producto` | INT FK → `dim_producto.sk_producto` | Product dimension reference |
 | `cantidad` | INT NOT NULL | Units ordered |

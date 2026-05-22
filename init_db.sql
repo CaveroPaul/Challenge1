@@ -12,6 +12,12 @@
 
 DROP TABLE IF EXISTS ventas;
 
+-- Drop gold tables in dependency order to allow schema changes
+DROP TABLE IF EXISTS fact_ventas;
+DROP TABLE IF EXISTS dim_fecha;
+DROP TABLE IF EXISTS dim_cliente;
+DROP TABLE IF EXISTS dim_producto;
+
 -- Bronze: deduped raw data, no transformation metrics applied
 CREATE TABLE IF NOT EXISTS raw_ventas (
     order_id             VARCHAR(20) PRIMARY KEY,
@@ -51,6 +57,20 @@ CREATE TABLE IF NOT EXISTS silver_ventas (
 );
 
 -- Gold: dimension tables
+CREATE TABLE IF NOT EXISTS dim_fecha (
+    sk_fecha        SERIAL PRIMARY KEY,
+    fecha           DATE UNIQUE NOT NULL,
+    anio            INT NOT NULL,
+    trimestre       INT NOT NULL,
+    mes             INT NOT NULL,
+    nombre_mes      VARCHAR(20) NOT NULL,
+    semana_anio     INT NOT NULL,
+    dia             INT NOT NULL,
+    dia_semana      INT NOT NULL,    -- ISO: 1=Lunes ... 7=Domingo
+    nombre_dia      VARCHAR(20) NOT NULL,
+    es_fin_semana   BOOLEAN NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS dim_cliente (
     sk_cliente  SERIAL PRIMARY KEY,
     id_cliente  VARCHAR(20) UNIQUE NOT NULL,
@@ -68,10 +88,15 @@ CREATE TABLE IF NOT EXISTS fact_ventas (
     sk_venta    SERIAL PRIMARY KEY,
     order_id    VARCHAR(20) UNIQUE NOT NULL,
     fecha       DATE,
+    sk_fecha    INT NOT NULL,
     sk_cliente  INT NOT NULL,
     sk_producto INT NOT NULL,
     cantidad    INT NOT NULL,
     final_total NUMERIC(12,3) NOT NULL,
+
+    CONSTRAINT fk_fecha
+        FOREIGN KEY (sk_fecha)
+        REFERENCES dim_fecha(sk_fecha),
 
     CONSTRAINT fk_cliente
         FOREIGN KEY (sk_cliente)
