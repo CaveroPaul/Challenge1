@@ -32,7 +32,7 @@ jupyter notebook data_extraction.ipynb
 data_extraction.ipynb       # Main ETL notebook
 init_db.sql                 # PostgreSQL schema — Bronze, Silver, Gold (includes dim_fecha)
 init_db.py                  # Python alternative to psql for schema init
-test_data_extraction.py     # 20 unit tests for transform logic (no DB required)
+test_data_extraction.py     # 43 unit tests for transform logic (no DB required)
 requirements.txt
 doc/
   README.md
